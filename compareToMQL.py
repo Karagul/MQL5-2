@@ -3,7 +3,6 @@ from MetaTrader5 import *
 from pytz import timezone
 import numpy as np
 import os
-import matplotlib.pyplot as plt
 import pandas as pd #importa a Biblioteca do Pandas
 from pandas.plotting import register_matplotlib_converters
 register_matplotlib_converters()
@@ -29,18 +28,32 @@ MT5WaitForTerminal( )
 
 baseStr='./csv/'
 all_files=os.listdir(baseStr)
-for FileName in all_files:
-    if FileName.endswith('.csv'):
+highestSumOfProfitVol=0
+highestSignalSumOfProfitVol=""
+
+for FileName in all_files: #Itera cada arquivo da pasta
+    if FileName.endswith('.csv'): #Checa se eh um arquivo CSV
         print(str(FileName),"   <<< ---------------------------------------------------------------")
         menor = pd.read_csv(baseStr+FileName,delimiter = ';')  # Importa o arquivo 'menor.csv' e o salva como Data Frame em 'menor'
+
         timeframe=MT5_TIMEFRAME_M5
         contaBuySell=0
         contaEntradasDentroDaFronteira=0
         contaSaidasDentroDaFronteira=0
 
-        highestVariation=0
-        for linha in range(len(menor)-2):
+        sumProfitVolume=0
 
+        highestVariation=0
+        for linha in range(len(menor)):
+            if not np.isnan(menor.loc[linha,'Volume']):
+                #Calculate the sum of all profit/volume
+                profit=menor.loc[linha,'Profit']
+                volume=menor.loc[linha,'Volume']
+                sumProfitVolume+= profit/volume
+                #print(str(profit/volume))
+
+
+            # Aqui acessa o range do timedate e compara ele com o preco de entrada e saida e a porcentagem de desvio ....
             try:
                 if not np.isnan(menor.loc[linha,'Volume']):
                     contaBuySell+=1
@@ -95,17 +108,28 @@ for FileName in all_files:
                     if menor.loc[linha,'Price.1'] <= ratesSaida.loc[0,'low'] and menor.loc[linha,'Price.1'] >= ratesSaida.loc[0,'high']:
                         # print("Saida encontra-se dentro das fornteiras na linha :  ", str(linha))
                         contaSaidasDentroDaFronteira+=1
+
+                    if highestSumOfProfitVol<sumProfitVolume:
+                        highestSumOfProfitVol=sumProfitVolume
+                        highestSignalSumOfProfitVol=FileName
                 pass
             except:
                 # print("Pulei uma linha em: ", FileName, " com o simbolo: ", menor.loc[linha,'Symbol'])
                 continue
                     # if ratesEntrada.loc[0,'low']>=menor.loc[linha,'Price']>=ratesEntrada.loc[0,'high'] and ratesSaida.loc[0,'low']>=menor.loc[linha,'Price.1']>=ratesSaida.loc[0,'high'] :
                     #     print("Entrada e Saida dentro das fronteiras na linha :  ", str(linha))
+            #Aqui ele guarda o com maior proporcao profit/volume .... mas como tem alguns sinais que operam em ooutras coisas alem de moedas...
+            #Fudeu .....
 
 
         print("De um total de : ", str(contaBuySell), " Entradas e Saidas")
         print(" somente ", str(contaEntradasDentroDaFronteira), " Entradas e     ", str(contaSaidasDentroDaFronteira), " Saidas dentro das fronteiras")
         print("Highest Variation is :", str(highestVariation))
+        print(" O somatorio do Profit/Volume eh: ", str(sumProfitVolume))
+
+#Deu Ruim ja que alguns ativos negociados tem valor do volume diferente....solucao seria calcular Profit/ValueOfTheVolume
+#Como calcular o valor em USD do volume ???? :/
+print("-------------------- The Signal with higest somatorio of Profit/Volume is :", highestSignalSumOfProfitVol, "   wich is : ", str(highestSumOfProfitVol))
 
 MT5Shutdown( )
 
